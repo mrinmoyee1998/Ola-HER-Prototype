@@ -969,4 +969,152 @@ const A = {
   cat: v => { S.cat = v; render(); },
   toggleHer: () => { S.herPref = !S.herPref; S.herReason = ''; if (S.herPref) S.sheet = 'her'; render(); },
   closeSheet: () => { S.sheet = null; render(); },
-  confirmHer: () => { S.sheet = null; S.matchMode = 'her'; S.extended
+    confirmHer: () => { S.sheet = null; S.matchMode = 'her'; S.extended = false; go('matching'); },
+  book: () => {
+    S.extended = false;
+    S.matchMode = S.herPref && CATS[S.cat].her ? 'her' : 'any';
+    go('matching');
+  },
+  anyDriver: () => { S.matchMode = 'any'; S.sheet = null; go('matching', { replace: S.screen === 'matching' }); },
+  extendWait: () => { S.matchMode = 'her'; S.extended = true; go('matching', { replace:true }); },
+  notify: () => { S.notify = true; S.sheet = null; S.history = []; go('home', { replace:true }); toast(`We'll notify you when a woman driver is nearby`); },
+  cancelNotify: () => { S.notify = false; render(); },
+  slot: v => { S.resSlot = +v; render(); },
+  bill: v => { S.billTo = v; render(); },
+  confirmReserve: v => { S.reservation = v; S.history = []; go('home', { replace:true }); toast(`Reserved: HER-preference ride at ${v}`); },
+  cancelRide: () => { S.history = []; go('home', { replace:true }); toast('Ride request cancelled. No charge.'); },
+  startRide: () => {
+    if (!S.arrived) return;
+    S.progress = 0; S.deviated = false; S.alertOpen = false; S.alertHandled = false;
+    S.sharing = S.settings.autoShare && S.night; go('live', { replace:true });
+  },
+  shareTrip: () => { S.sheet = 'share'; render(); },
+  shareContact: v => { S.share[v] = !S.share[v]; render(); },
+  confirmShare: () => { S.sharing = Object.values(S.share).some(Boolean); S.sheet = null; render(); if (S.screen==='live') positionCar(); toast(S.sharing ? 'Live trip shared' : 'Trip sharing off'); },
+  imOkay: () => { S.alertOpen = false; S.alertHandled = true; S.checkins++; render(); positionCar(); toast("Thanks. We'll keep monitoring the route."); },
+  getHelp: () => { S.alertOpen = false; S.alertHandled = true; if (S.screen === 'safety') { toast('Connecting you to Ola Safety Support…'); return; } go('safety'); toast('Ola Safety has been notified about this trip'); },
+  armSos: () => {
+    S.alertOpen = false; S.alertHandled = true;
+    if (S.screen !== 'safety') go('safety');
+    S.sosArm = 3; render();
+    const tick = () => { if (!S.sosArm) return; S.sosArm--; if (S.sosArm <= 0) { S.sosArm = 0; go('sos'); } else { render(); later(tick, 1000); } };
+    later(tick, 1000);
+  },
+  cancelSos: () => { S.sosArm = 0; render(); toast('Emergency alert cancelled'); },
+  safeNow: () => { toast('Marked safe. Ola Safety will still follow up.'); if (S.driver) { S.history = ['home']; go('live', { replace:true }); } else go('home', { replace:true }); },
+  checkinOk: () => { S.checkins++; toast('Glad you are okay. Check-in logged.'); },
+  toggleRec: () => { S.recording = !S.recording; render(); toast(S.recording ? 'Audio recording on' : 'Audio recording stopped'); },
+  rate: v => { S.rating = +v; render(); },
+  comfort: v => { S.comfort = +v; render(); },
+  nextPref: v => { S.nextPref = +v; render(); },
+  submitFeedback: () => {
+    let msg = 'Thanks for the feedback';
+    if (S.nextPref === 0 && !S.settings.prefer) { S.settings.prefer = true; msg = 'HER preference turned on for future rides'; }
+    else if (S.nextPref === 0) msg = "Noted. We'll keep suggesting a woman driver for rides like this";
+    S.history = []; S.driver = null; S.rating = 0; S.comfort = null; S.nextPref = null; S.recording = false;
+    go('home', { replace:true }); toast(msg);
+  },
+  setPrefer: () => { draft(); S.draft.prefer = !S.draft.prefer; render(); },
+  setAutoShare: () => { draft(); S.draft.autoShare = !S.draft.autoShare; render(); },
+  sit: v => { draft(); S.draft[v] = !S.draft[v]; render(); },
+  wait: v => { draft(); S.draft.wait = +v; render(); },
+  saveSettings: () => { if (S.draft) S.settings = S.draft; S.draft = null; back(); toast('HER preferences saved'); },
+  toast: v => toast(v)
+};
+function draft() { if (!S.draft) S.draft = JSON.parse(JSON.stringify(S.settings)); }
+
+/* =========================================================
+   Render + events
+   ========================================================= */
+const phone = document.getElementById('phone');
+function render() {
+  phone.classList.toggle('night', S.night);
+  if (S.screen !== 'settings') S.draft = null;
+  phone.innerHTML = SCREENS[S.screen]() + `<div class="toast" id="toast" role="status"></div>`;
+  if (S.screen === 'live') positionCar();
+  syncPanel();
+}
+let toastT;
+function toast(msg) {
+  const el = document.getElementById('toast'); if (!el) return;
+  el.innerHTML = I('check',16) + `<span>${msg}</span>`; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600);
+}
+phone.addEventListener('click', e => {
+  const t = e.target.closest('[data-a]'); if (!t) return;
+  if (t.hasAttribute('data-self') && e.target !== t) return; // overlay backdrop only
+  if (t.disabled) return;
+  const fn = A[t.dataset.a]; if (fn) fn(t.dataset.v);
+});
+phone.addEventListener('input', e => {
+  if (e.target.id === 'dropInput') { S.query = e.target.value; document.getElementById('sugg').innerHTML = suggestions(); }
+});
+
+/* ---------- Presenter panel ---------- */
+const NOTES = {
+  home:['Home: HER lives inside Ola','The booking architecture is untouched. HER appears as a quiet entry point and a profile setting, not a takeover. Tap Home or type a destination.'],
+  search:['Destination search','Standard Ola step. Choosing an airport or station can switch HER on automatically, based on the rider’s own settings.'],
+  rides:['Decision 1: a preference layer','HER is a toggle on eligible categories (Mini, Prime), not a separate fleet. The wait meter shows the real cost of the choice side by side with any driver.'],
+  matching:['Choice without false promises','Copy always says “we’ll try”. The rider’s max-wait setting caps the search, and switching to any driver is one tap away.'],
+  matched:['Preference visibly fulfilled','“HER preference matched” confirms the choice was honoured. ID verification and trip tools look the same for every driver.'],
+  nodriver:['Decision 4: graceful fallback','The supply constraint is shown, not hidden. Wait, reserve or ride now. Reservations build predictable demand for women drivers.'],
+  reserve:['Decision 6: demand density','Reserved rides let women drivers plan shifts. Billing to work shows the B2B late-shift channel. The rider is asked before any non-HER assignment.'],
+  live:['Decision 3: safety for every ride','“HER Safety active” runs regardless of driver gender. Switch the route control to Deviation to trigger a proactive alert.'],
+  safety:['Built for stress','SOS is the largest target. Every other tool is one tap. Arm-and-cancel prevents accidental alerts.'],
+  sos:['Emergency state','Clear confirmation of what has happened, and direct lines to 112 and Ola Safety.'],
+  complete:['Feedback loop','Comfort and next-time preference feed matching personalisation, without assuming every woman wants the same thing.'],
+  profile:['Profile','Entry point to HER preferences and safety settings.'],
+  settings:['Decision 5: personal, not binary','Situations and wait limits let each rider decide when HER matters to her. Save to apply across the flow.']
+};
+const LABELS = { home:'1. Home', search:'2. Destination search', rides:'3–4. Ride selection + HER', matching:'5. Matching', matched:'6. Driver matched', nodriver:'7. No woman driver', reserve:'Reserve for later', live:'9–10. Live ride', safety:'8. Safety centre', sos:'SOS sent', complete:'11. Ride completed', profile:'Profile', settings:'12. HER settings' };
+const jump = document.getElementById('jump');
+jump.innerHTML = Object.entries(LABELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+jump.addEventListener('change', () => {
+  const s = jump.value;
+  if (['matched','live','safety','complete'].includes(s) && !S.driver) { S.driver = DRIVERS.her; S.herMatched = true; S.arrived = true; }
+  if (s === 'live') { S.progress = 0; S.deviated = false; S.alertOpen = false; S.alertHandled = false; }
+  if (s === 'rides') applyAutoPreference();
+  S.history = s === 'home' ? [] : ['home'];
+  go(s, { replace:true });
+});
+function syncPanel() {
+  document.querySelectorAll('[data-ctl]').forEach(seg => {
+    const key = seg.dataset.ctl;
+    const val = key === 'night' ? (S.night ? 'night' : 'day') : S[key];
+    seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === val));
+  });
+  const n = NOTES[S.screen] || ['',''];
+  document.getElementById('note').innerHTML = `<b>${n[0]}</b>${n[1]}`;
+  jump.value = S.screen;
+}
+document.querySelectorAll('[data-ctl] button').forEach(b => b.addEventListener('click', () => {
+  const key = b.parentElement.dataset.ctl;
+  if (key === 'night') { S.night = b.dataset.v === 'night'; if (S.screen === 'rides') applyAutoPreference(); }
+  else S[key] = b.dataset.v;
+  if (key === 'route' && S.screen === 'live') { S.alertHandled = false; }
+  render();
+}));
+function scenario(n) {
+  clearTimers();
+  const keep = { night:S.night, settings:S.settings };
+  S = Object.assign(initial(), keep);
+  S.dest = PLACES[0]; S.cat = 'mini';
+  if (n === 1) { S.availability = 'available'; S.herPref = true; S.herReason = S.night ? 'On for late-night rides, from your HER settings' : ''; S.history = ['home','search']; S.screen = 'rides'; render(); }
+  if (n === 2) { S.availability = 'unavailable'; S.herPref = true; S.herReason = S.night ? 'On for late-night rides, from your HER settings' : ''; S.history = ['home','search']; S.screen = 'rides'; render(); }
+  if (n === 3) { S.route = 'deviated'; S.driver = DRIVERS.her; S.herMatched = true; S.herPref = true; S.sharing = true; S.history = ['home']; S.screen = 'live'; render(); enter('live'); }
+  if (n === 4) { S.driver = DRIVERS.her; S.herMatched = true; S.history = ['home']; S.screen = 'sos'; render(); }
+  closePanel();
+}
+document.querySelectorAll('[data-scn]').forEach(b => b.addEventListener('click', () => scenario(+b.dataset.scn)));
+document.querySelector('[data-reset]').addEventListener('click', () => { clearTimers(); S = initial(); render(); closePanel(); });
+
+/* Mobile drawer */
+const panel = document.getElementById('panel'), fab = document.getElementById('fab'), closeBtn = document.getElementById('closePanel');
+fab.addEventListener('click', () => { panel.classList.add('open'); closeBtn.style.display = 'block'; });
+closeBtn.addEventListener('click', closePanel);
+function closePanel(){ panel.classList.remove('open'); closeBtn.style.display = 'none'; }
+
+render();
+</script>
+</body>
+</html>
