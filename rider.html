@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ola HER — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ---------- Shell tokens (presenter page, theme-aware) ---------- */
+:root{
+  --shell-bg:#E9ECF2; --shell-ink:#16213E; --shell-muted:#5B6478; --panel:#FFFFFF; --panel-line:#D9DEE8;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --shell-bg:#0E1424; --shell-ink:#E8ECF5; --shell-muted:#9AA3B8; --panel:#161E33; --panel-line:#2A3450; }
+}
+:root[data-theme="dark"]{ --shell-bg:#0E1424; --shell-ink:#E8ECF5; --shell-muted:#9AA3B8; --panel:#161E33; --panel-line:#2A3450; }
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100%;background:var(--shell-bg);color:var(--shell-ink);
+  font-family:Manrope,"Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,input:focus-visible{outline:2px solid #3B6FE0;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+.stage{display:flex;gap:40px;justify-content:center;align-items:flex-start;padding:28px 20px 40px;min-height:100%}
+
+/* ---------- Product tokens (inside the phone) ---------- */
+.phone{
+  --ink:#16213E; --ink-2:#3C4660; --muted:#6B7488; --line:#E4E7EE; --bg:#F5F6F9; --card:#FFFFFF;
+  --her:#D9646B; --her-soft:#FBECEC; --safe:#1E9E6A; --safe-soft:#E5F5EE; --sos:#D0312D; --warn:#C7811B; --warn-soft:#FDF3E2;
+  --map:#EEF0F3; --road:#FFFFFF; --road-edge:#DCE0E7; --block:#E3E6EC; --park:#DCEBDD; --water:#D6E4F2;
+  width:390px;height:820px;border-radius:46px;background:var(--bg);color:var(--ink);position:relative;overflow:hidden;
+  box-shadow:0 0 0 10px #10172A,0 30px 60px -20px rgba(16,23,42,.45);flex:none;
+}
+.phone.night{ --map:#1C2436; --road:#2C364D; --road-edge:#26304A; --block:#222B3F; --park:#1F3330; --water:#1D2C45; }
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.sb{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 28px;font-size:14px;font-weight:700;flex:none;position:relative;z-index:5}
+.sb .sig{display:flex;gap:2px;align-items:flex-end}
+.sb .sig i{display:block;width:3px;background:currentColor;border-radius:1px}
+.on-map .sb{color:var(--ink)} .night .on-map .sb{color:#fff}
+.ic{flex:none;display:block}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:6px 16px 12px;flex:none}
+.topbar h1{font-size:18px;margin:0;font-weight:800;letter-spacing:-.01em}
+.iconbtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card);box-shadow:0 1px 0 var(--line),0 0 0 1px var(--line)}
+
+.sheet{background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -6px 24px rgba(16,23,42,.10);position:relative;z-index:3}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 6px}
+.pad{padding:0 18px}
+.h2{font-size:20px;font-weight:800;letter-spacing:-.015em;margin:0}
+.sub{color:var(--muted);font-size:13.5px;line-height:1.45;margin:4px 0 0}
+.small{font-size:12.5px;color:var(--muted)}
+.row{display:flex;align-items:center;gap:12px}
+.between{justify-content:space-between}
+.grow{flex:1;min-width:0}
+
+.btn{height:52px;border-radius:14px;font-weight:700;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-ghost{background:var(--bg);color:var(--ink)}
+.btn-line{box-shadow:inset 0 0 0 1.5px var(--line);background:var(--card)}
+.btn-sos{background:var(--sos);color:#fff}
+.btn-her{background:var(--her);color:#fff}
+.link{color:#2F5BD3;font-weight:700;font-size:14px}
+
+/* Map */
+.map{position:relative;background:var(--map);overflow:hidden}
+.map svg{display:block;width:100%;height:100%}
+.r-edge{stroke:var(--road-edge);stroke-width:16;fill:none;stroke-linecap:round}
+.r{stroke:var(--road);stroke-width:12;fill:none;stroke-linecap:round}
+.r-sm{stroke:var(--road);stroke-width:6;fill:none}
+.route{stroke:var(--ink);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.night .route{stroke:#9EC1FF}
+.route-ghost{stroke:var(--ink);stroke-width:4;fill:none;stroke-dasharray:2 8;stroke-linecap:round;opacity:.45}
+.night .route-ghost{stroke:#9EC1FF}
+.route-dev{stroke:var(--warn);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:10 7}
+.maplabel{font-size:10px;font-weight:700;fill:#8A93A6;letter-spacing:.02em}
+
+/* Home */
+.home-map{height:260px;flex:none}
+.whereto{display:flex;align-items:center;gap:12px;background:var(--bg);border-radius:14px;height:54px;padding:0 16px;width:100%;font-size:17px;font-weight:700;color:var(--ink-2);text-align:left}
+.chips{display:flex;gap:10px;margin-top:12px}
+.chip{flex:1;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.chip b{display:block;font-size:14px}.chip span{font-size:12px;color:var(--muted)}
+.services{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:18px}
+.svc{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:700}
+.svc .tile{width:100%;aspect-ratio:1.15;border-radius:14px;background:var(--bg);display:grid;place-items:center;color:var(--ink-2)}
+.her-entry{margin-top:16px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);width:100%;text-align:left}
+.her-mark{font-weight:800;letter-spacing:.06em;font-size:12px;color:var(--her);background:var(--her-soft);border-radius:8px;padding:6px 8px;flex:none}
+.recent{margin-top:14px}
+.recent button{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.recent button:last-child{border-bottom:0}
+.dot-ic{width:34px;height:34px;border-radius:50%;background:var(--bg);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.tabbar{display:flex;justify-content:space-around;padding:8px 8px 22px;border-top:1px solid var(--line);background:var(--card);flex:none}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted);width:72px}
+.tab.on{color:var(--ink)}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.4;margin-top:12px}
+.banner.her{background:var(--her-soft);color:#7A2E33}
+.banner.info{background:#EAF0FD;color:#21407F}
+.banner.safe{background:var(--safe-soft);color:#13573C}
+.banner.warn{background:var(--warn-soft);color:#7A4E0E}
+
+/* Search */
+.loc-box{background:var(--card);border-radius:16px;padding:6px 14px;box-shadow:0 0 0 1px var(--line);margin:0 16px}
+.loc-line{display:flex;align-items:center;gap:12px;height:48px}
+.loc-line + .loc-line{border-top:1px solid var(--line)}
+.pip{width:10px;height:10px;border-radius:50%;flex:none}
+.pip.g{background:var(--safe)} .pip.r{background:var(--ink);border-radius:2px}
+.loc-line input{border:0;outline:0;font:inherit;font-size:15.5px;font-weight:600;flex:1;background:transparent;color:var(--ink);min-width:0}
+.sugg button{display:flex;gap:12px;align-items:center;padding:13px 18px;width:100%;text-align:left;border-bottom:1px solid var(--line);background:var(--card)}
+.sugg b{font-size:15px;display:block}.sugg span{font-size:12.5px;color:var(--muted)}
+
+/* Ride select */
+.rides-map{height:250px;flex:none}
+.cat{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;width:100%;text-align:left;margin-bottom:6px;box-shadow:inset 0 0 0 1.5px transparent}
+.cat.sel{box-shadow:inset 0 0 0 1.5px var(--ink);background:#F8F9FB}
+.cat .veh{width:46px;height:40px;border-radius:10px;background:var(--bg);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.cat b{font-size:15.5px}
+.cat .fare{font-weight:800;font-size:16px;text-align:right}
+.cat .eta{font-size:12px;color:var(--muted)}
+.cat .eta.her{color:var(--her);font-weight:700}
+.herrow{border-radius:14px;padding:12px 14px;margin:4px 0 8px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+.herrow.on{box-shadow:inset 0 0 0 1.5px var(--her);background:#FFFBFB}
+.switch{width:46px;height:28px;border-radius:14px;background:#C9CED8;position:relative;flex:none;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch.on{background:var(--her)} .switch.on::after{transform:translateX(18px)}
+.switch.green.on{background:var(--safe)}
+
+/* Wait meter — the honest availability signature */
+.meter{margin-top:10px}
+.meter .lane{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;margin-top:6px}
+.meter .lane .lbl{width:92px;color:var(--ink-2)}
+.meter .track{flex:1;height:8px;border-radius:4px;background:var(--bg);position:relative;overflow:hidden}
+.meter .fill{position:absolute;top:0;bottom:0;left:0;border-radius:4px;background:var(--ink-2)}
+.meter .range{position:absolute;top:0;bottom:0;border-radius:4px;background:repeating-linear-gradient(90deg,var(--her) 0 6px,#E89399 6px 9px)}
+.meter .solid{position:absolute;top:0;bottom:0;left:0;border-radius:4px;background:var(--her)}
+.meter .val{width:58px;text-align:right}
+.meter .scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin:4px 0 0 102px;padding-right:68px}
+
+/* Overlay sheet */
+.overlay{position:absolute;inset:0;background:rgba(16,23,42,.45);z-index:20;display:flex;align-items:flex-end;animation:fade .2s}
+.overlay .sheet{width:100%;padding-bottom:26px;animation:up .25s ease-out}
+.overlay.center{align-items:center;padding:18px}
+.overlay.center .card-modal{background:var(--card);border-radius:22px;width:100%;padding:20px;animation:pop .2s ease-out}
+@keyframes fade{from{opacity:0}} @keyframes up{from{transform:translateY(40px);opacity:.4}} @keyframes pop{from{transform:scale(.94);opacity:0}}
+.opt{display:flex;gap:12px;align-items:center;padding:14px;border-radius:14px;box-shadow:inset 0 0 0 1px var(--line);width:100%;text-align:left;margin-top:10px;background:var(--card)}
+.opt .oi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--bg)}
+.opt b{font-size:15px;display:block}.opt span{font-size:12.5px;color:var(--muted)}
+.opt.hl{box-shadow:inset 0 0 0 1.5px var(--her)}
+.opt.hl .oi{background:var(--her-soft);color:var(--her)}
+
+/* Matching */
+.match-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 28px}
+.radar{width:190px;height:190px;border-radius:50%;position:relative;display:grid;place-items:center;margin-bottom:28px}
+.radar span{position:absolute;inset:0;border-radius:50%;border:2px solid var(--her);opacity:0;animation:ping 2.4s ease-out infinite}
+.radar span:nth-child(2){animation-delay:.8s}.radar span:nth-child(3){animation-delay:1.6s}
+.radar.any span{border-color:var(--ink-2)}
+@keyframes ping{0%{transform:scale(.35);opacity:.8}100%{transform:scale(1);opacity:0}}
+.radar .core{width:76px;height:76px;border-radius:50%;background:var(--card);box-shadow:0 6px 20px rgba(16,23,42,.12);display:grid;place-items:center;position:relative;z-index:2}
+.steps{margin-top:22px;text-align:left;width:100%}
+.step{display:flex;gap:10px;align-items:center;font-size:13.5px;padding:6px 0;color:var(--muted)}
+.step.done{color:var(--ink)} .step .b{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--line);display:grid;place-items:center;flex:none}
+.step.done .b{background:var(--safe);box-shadow:none;color:#fff}
+.step.now .b{box-shadow:inset 0 0 0 2px var(--her)}
+.progress{width:100%;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:16px}
+.progress i{display:block;height:100%;background:var(--her);transition:width .5s linear}
+
+/* Driver */
+.avatar{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px;flex:none;background:#E5E9F2;color:var(--ink)}
+.avatar.f{background:var(--her-soft);color:#9C3940}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px}
+.badge.her{background:var(--her-soft);color:#9C3940}
+.badge.safe{background:var(--safe-soft);color:#13573C}
+.badge.neutral{background:var(--bg);color:var(--ink-2)}
+.plate{font-weight:800;letter-spacing:.06em;font-size:14px;padding:4px 8px;border-radius:6px;background:#FFF4C2;color:#3A3000;box-shadow:inset 0 0 0 1px #E8D57A}
+.actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:16px}
+.act{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--ink-2)}
+.act .c{width:48px;height:48px;border-radius:50%;background:var(--bg);display:grid;place-items:center}
+.act.safety .c{background:var(--safe-soft);color:var(--safe)}
+.act.cancel .c{color:var(--sos)}
+.otp{display:flex;gap:6px}.otp i{font-style:normal;width:30px;height:36px;border-radius:8px;background:var(--bg);display:grid;place-items:center;font-weight:800;font-size:17px}
+
+/* Live */
+.live-map{flex:1;position:relative}
+.floating{position:absolute;z-index:4}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;background:var(--card);font-size:12.5px;font-weight:800;box-shadow:0 4px 14px rgba(16,23,42,.15)}
+.pill .live{width:8px;height:8px;border-radius:50%;background:var(--safe);box-shadow:0 0 0 0 rgba(30,158,106,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(30,158,106,0)}100%{box-shadow:0 0 0 0 rgba(30,158,106,0)}}
+.shield-fab{width:56px;height:56px;border-radius:50%;background:var(--card);color:var(--safe);display:grid;place-items:center;box-shadow:0 6px 18px rgba(16,23,42,.2)}
+
+/* Safety centre */
+.sos-big{width:100%;border-radius:20px;background:var(--sos);color:#fff;padding:20px;display:flex;align-items:center;gap:16px;text-align:left}
+.sos-big .ring{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:800;font-size:18px;flex:none}
+.sos-big b{font-size:20px;display:block}.sos-big span{font-size:13px;opacity:.9}
+.tile2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stile{border-radius:16px;padding:14px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);text-align:left;display:flex;flex-direction:column;gap:8px;min-height:116px}
+.stile b{font-size:15px}.stile span{font-size:12px;color:var(--muted);line-height:1.35}
+.stile .ti{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--bg)}
+.stile.on{box-shadow:inset 0 0 0 1.5px var(--safe)} .stile.on .ti{background:var(--safe-soft);color:var(--safe)}
+.contact{display:flex;align-items:center;gap:12px;padding:10px 0}
+.contact + .contact{border-top:1px solid var(--line)}
+
+/* SOS screen */
+.sos-screen{background:#B3231F;color:#fff}
+.sos-screen .sub{color:rgba(255,255,255,.85)}
+.sos-pulse{width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;margin:20px auto;animation:sp 1.6s infinite}
+@keyframes sp{50%{box-shadow:0 0 0 18px rgba(255,255,255,.06)}}
+.sos-list{background:rgba(0,0,0,.18);border-radius:16px;padding:6px 14px;margin-top:8px}
+.sos-list div{display:flex;gap:10px;align-items:center;padding:10px 0;font-size:14px}
+.sos-list div + div{border-top:1px solid rgba(255,255,255,.15)}
+
+/* Rating */
+.stars{display:flex;gap:8px;justify-content:center;margin:14px 0 4px}
+.stars button{color:#C9CED8}.stars button.on{color:#F2A900}
+.choice{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.choice button{padding:10px 13px;border-radius:999px;box-shadow:inset 0 0 0 1.5px var(--line);font-size:13.5px;font-weight:700;background:var(--card)}
+.choice button.on{box-shadow:inset 0 0 0 1.5px var(--ink);background:var(--ink);color:#fff}
+.qblock{margin-top:22px}
+.qblock h3{font-size:15.5px;margin:0;font-weight:800}
+
+/* Settings */
+.group{background:var(--card);border-radius:16px;padding:4px 16px;margin:0 16px 14px;box-shadow:0 0 0 1px var(--line)}
+.group h4{margin:12px 0 2px;font-size:13px;color:var(--muted);font-weight:700}
+.srow{display:flex;align-items:center;gap:12px;padding:13px 0;width:100%;text-align:left}
+.srow + .srow{border-top:1px solid var(--line)}
+.srow b{font-size:15px;display:block;font-weight:700}.srow span{font-size:12.5px;color:var(--muted)}
+.cbox{width:22px;height:22px;border-radius:6px;box-shadow:inset 0 0 0 2px #B7BDC9;display:grid;place-items:center;flex:none;color:#fff}
+.cbox.on{background:var(--ink);box-shadow:none}
+.radio{width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 2px #B7BDC9;flex:none}
+.radio.on{box-shadow:inset 0 0 0 7px var(--ink)}
+.dim{opacity:.45;pointer-events:none}
+
+.toast{position:absolute;left:16px;right:16px;bottom:110px;z-index:40;background:var(--ink);color:#fff;border-radius:14px;padding:13px 16px;font-size:13.5px;font-weight:600;display:flex;gap:10px;align-items:center;transform:translateY(20px);opacity:0;transition:.25s;pointer-events:none}
+.toast.show{transform:none;opacity:1}
+
+.timechips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.timechips button{padding:12px 6px;border-radius:12px;box-shadow:inset 0 0 0 1.5px var(--line);font-weight:700;font-size:13.5px;background:var(--card)}
+.timechips button.on{box-shadow:inset 0 0 0 2px var(--her);background:#FFFBFB}
+
+/* ---------- Presenter panel ---------- */
+.panel{width:340px;background:var(--panel);border-radius:20px;padding:20px;box-shadow:0 0 0 1px var(--panel-line);position:sticky;top:24px;flex:none}
+.panel h2{margin:0;font-size:17px;font-weight:800;letter-spacing:-.01em}
+.panel .ptitle{display:flex;justify-content:space-between;align-items:center}
+.panel p{color:var(--shell-muted);font-size:13px;line-height:1.5;margin:6px 0 0}
+.psec{margin-top:18px}
+.psec > b{font-size:13px;display:block;margin-bottom:8px}
+.scen{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scen button{text-align:left;padding:10px 12px;border-radius:12px;box-shadow:inset 0 0 0 1px var(--panel-line);font-size:12.5px;font-weight:700;line-height:1.3}
+.scen button small{display:block;font-weight:600;color:var(--shell-muted);font-size:11.5px;margin-top:2px}
+.scen button:hover{box-shadow:inset 0 0 0 1.5px var(--shell-ink)}
+.seg{display:flex;background:var(--shell-bg);border-radius:10px;padding:3px;margin-bottom:8px}
+.seg button{flex:1;padding:7px 4px;border-radius:8px;font-size:12px;font-weight:700;color:var(--shell-muted)}
+.seg button.on{background:var(--panel);color:var(--shell-ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seglbl{font-size:12px;color:var(--shell-muted);margin:4px 0 4px}
+.note{background:var(--shell-bg);border-radius:14px;padding:14px;font-size:13px;line-height:1.5}
+.note b{display:block;font-size:13.5px;margin-bottom:4px}
+.jump{width:100%;padding:9px;border-radius:10px;border:1px solid var(--panel-line);background:var(--panel);color:var(--shell-ink);font:inherit;font-size:13px}
+.fab{display:none}
+
+@media (max-width: 860px){
+  .stage{padding:0;gap:0}
+  .phone{width:100%;height:100%;min-height:100dvh;border-radius:0;box-shadow:none}
+  body,html{height:100%}
+  .stage{height:100%}
+  .panel{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;border-radius:20px 20px 0 0;max-height:80%;overflow:auto;z-index:100;transform:translateY(105%);transition:transform .25s;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+  .panel.open{transform:none}
+  .fab{display:flex;position:fixed;right:14px;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:90;background:#16213E;color:#fff;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:800;gap:6px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="phone night" id="phone"></div>
+
+  <aside class="panel" id="panel" aria-label="Prototype controls">
+    <div class="ptitle"><h2>Prototype controls</h2><button class="link" id="closePanel" style="display:none">Close</button></div>
+    <p>Ola HER, rider side. Pick a scenario, or flip the conditions and walk the flow on the phone. <a href="https://claude.ai/artifact/HJAAo1FEcw7gDHrSFp6j5J" target="_blank" rel="noopener" style="color:#2F5BD3;font-weight:700">Open the driver app</a></p>
+
+    <div class="psec"><b>Scenarios</b>
+      <div class="scen">
+        <button data-scn="1">1. HER driver available<small>Booking with preference on</small></button>
+        <button data-scn="2">2. No HER driver<small>Honest fallback options</small></button>
+        <button data-scn="3">3. Route deviation<small>Proactive safety alert</small></button>
+        <button data-scn="4">4. Emergency / SOS<small>Alert sent state</small></button>
+      </div>
+    </div>
+
+    <div class="psec"><b>Conditions</b>
+      <div class="seglbl">Woman driver supply</div>
+      <div class="seg" data-ctl="availability"><button data-v="available">Available</button><button data-v="unavailable">Unavailable</button></div>
+      <div class="seglbl">Route during ride</div>
+      <div class="seg" data-ctl="route"><button data-v="normal">Normal</button><button data-v="deviated">Deviation</button></div>
+      <div class="seglbl">Time of day</div>
+      <div class="seg" data-ctl="night"><button data-v="day">Day</button><button data-v="night">Night</button></div>
+    </div>
+
+    <div class="psec"><b>Jump to screen</b>
+      <select class="jump" id="jump"></select>
+    </div>
+
+    <div class="psec"><b>Why this screen exists</b>
+      <div class="note" id="note"></div>
+    </div>
+
+    <div class="psec"><button class="link" data-reset>Reset prototype</button></div>
+  </aside>
+  <button class="fab" id="fab">Demo controls</button>
+</div>
+
+<script>
+/* =========================================================
+   Ola HER — functional prototype (mock data, no backend)
+   Rendering: one state object -> screen functions -> innerHTML.
+   Events: delegated via data-a="action" data-v="value".
+   ========================================================= */
+
+/* ---------- Icons (Lucide-style paths) ---------- */
+const P = {
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  shieldCheck:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  star:'<polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/>',
+  home:'<path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  work:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>',
+  route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  alert:'<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  headset:'<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
+  car:'<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2.7-3.6A2 2 0 0 0 13.7 6H7.4a2 2 0 0 0-1.8 1.1L4 10l-1.6.5C1.6 10.8 1 11.6 1 12.5V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/>',
+  auto:'<path d="M4 17V9a4 4 0 0 1 4-4h6l4 5v7"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6M4 11h14"/>',
+  sedan:'<path d="M3 16v-3l2-4.5A2 2 0 0 1 6.8 7h10.4a2 2 0 0 1 1.8 1.5L21 13v3"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M9 16.5h6M3 13h18"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  nav:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
+  verified:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  heart:'<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/>'
+};
+const I = (n, s = 20, extra = '') => `<svg class="ic" ${extra} width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------- Mock data ---------- */
+const DRIVERS = {
+  her: { name:'Priya', initials:'P', rating:4.9, trips:'2,140', vehicle:'White Tata Nexon', plate:'KA 05 XX 1234', woman:true, since:'Ola driver since 2022' },
+  any: { name:'Rahul', initials:'R', rating:4.8, trips:'5,310', vehicle:'Grey Maruti WagonR', plate:'KA 03 MK 7781', woman:false, since:'Ola driver since 2019' }
+};
+const CATS = {
+  mini:  { name:'Mini', desc:'Hatchback, 4 seats', fare:245, eta:4, her:true, icon:'car' },
+  prime: { name:'Prime Sedan', desc:'Sedan, extra legroom', fare:312, eta:5, her:true, icon:'sedan' },
+  auto:  { name:'Auto', desc:'3 seats', fare:168, eta:3, her:false, icon:'auto' }
+};
+const PLACES = [
+  { t:'Indiranagar', s:'100 Feet Road, HAL 2nd Stage', k:1, home:true },
+  { t:'Indiranagar Metro Station', s:'CMH Road, Indiranagar', k:1 },
+  { t:'Kempegowda International Airport', s:'Devanahalli, Bengaluru', k:3.4, airport:true },
+  { t:'Bengaluru City Railway Station', s:'Gubbi Thotadappa Rd, Majestic', k:1.9, airport:true },
+  { t:'MG Road', s:'Ashok Nagar', k:1.1 },
+  { t:'HSR Layout', s:'Sector 2', k:.8 }
+];
+const PICKUP = 'Koramangala 5th Block';
+
+/* ---------- State ---------- */
+const initial = () => ({
+  screen:'home', history:[],
+  availability:'available', route:'normal', night:true,
+  dest:PLACES[0], cat:'mini', herPref:false, herReason:'', query:'Indira',
+  sheet:null, matchMode:'her', matchStep:0, extended:false,
+  driver:null, herMatched:false, arrived:false,
+  progress:0, deviated:false, alertOpen:false, alertHandled:false, checkins:0,
+  recording:false, share:{ mom:true, ananya:false }, sharing:false,
+  sosArm:0, rating:0, comfort:null, nextPref:null,
+  notify:false, reservation:null, resSlot:1, billTo:'personal', safetyMode:true,
+  settings:{ prefer:true, late:true, alone:true, airport:true, all:false, wait:10, autoShare:true },
+  draft:null
+});
+let S = initial();
+let timers = [];
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+const every = (fn, ms) => timers.push(setInterval(fn, ms));
+const clearTimers = () => { timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = []; };
+
+const herWait = () => S.night ? [7,10] : [6,8];
+const fare = c => Math.round(CATS[c].fare * S.dest.k / 5) * 5;
+const time = () => S.night ? '10:42' : '2:15';
+const D = () => S.driver || DRIVERS.her;
+
+/* ---------- Navigation ---------- */
+function go(screen, opts = {}) {
+  clearTimers();
+  if (!opts.replace && S.screen !== screen) S.history.push(S.screen);
+  S.screen = screen; S.sheet = null;
+  render();
+  enter(screen);
+}
+function back() {
+  clearTimers();
+  const prev = S.history.pop() || 'home';
+  S.screen = prev; S.sheet = null; render(); enter(prev);
+}
+function enter(screen) {
+  if (screen === 'matching') startMatching();
+  if (screen === 'matched') later(() => { S.arrived = true; if (S.screen==='matched') render(); }, 5000);
+  if (screen === 'live') startTrip();
+}
+
+/* ---------- Personalised preference (Decision 5) ---------- */
+function applyAutoPreference() {
+  const st = S.settings;
+  S.herPref = false; S.herReason = '';
+  if (!st.prefer) return;
+  if (st.all) { S.herPref = true; S.herReason = 'On for all rides, from your HER settings'; }
+  else if (S.night && st.late) { S.herPref = true; S.herReason = 'On for late-night rides, from your HER settings'; }
+  else if (S.dest.airport && st.airport) { S.herPref = true; S.herReason = 'On for airport and station rides, from your HER settings'; }
+}
+
+/* ---------- Matching simulation ---------- */
+function startMatching() {
+  S.matchStep = 0; render();
+  const her = S.matchMode === 'her';
+  const stepMs = her ? 1300 : 800;
+  [1,2,3].forEach(n => later(() => { S.matchStep = n; if (S.screen==='matching') render(); }, n * stepMs));
+  later(() => {
+    if (S.screen !== 'matching') return;
+    if (her && S.availability === 'unavailable') { go('nodriver', { replace:true }); return; }
+    S.driver = her ? DRIVERS.her : DRIVERS.any;
+    S.herMatched = her;
+    S.arrived = false;
+    go('matched', { replace:true });
+  }, stepMs * 3 + 700);
+}
+
+/* ---------- Trip simulation (car along an SVG path) ---------- */
+function startTrip() {
+  S.alertOpen = S.alertOpen || false;
+  positionCar();
+  every(() => {
+    if (S.screen !== 'live' || S.alertOpen || S.sheet) return;
+    S.progress = Math.min(1, S.progress + 0.0065);
+    const pt = positionCar();
+    if (S.route === 'deviated' && !S.alertHandled && pt && pt.x > 258 && pt.y > 320) {
+      S.deviated = true; S.alertOpen = true; render(); positionCar();
+    }
+    if (S.progress >= 1) { go('complete', { replace:true }); }
+  }, 110);
+}
+function positionCar() {
+  const path = document.getElementById(S.route === 'deviated' ? 'devTrack' : 'routePath');
+  const car = document.getElementById('car');
+  if (!path || !car) return null;
+  const pt = path.getPointAtLength(S.progress * path.getTotalLength());
+  car.setAttribute('transform', `translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)})`);
+  const eta = document.getElementById('eta');
+  if (eta) eta.textContent = Math.max(1, Math.ceil((1 - S.progress) * (S.deviated ? 16 : 14))) + ' min';
+  return pt;
+}
+
+/* ---------- Map ---------- */
+const ROUTE = 'M80 420 L80 330 L200 330 L200 180 L310 180 L310 70';
+const DEV   = 'M80 420 L80 330 L200 330 L345 330 L345 200 L310 160 L310 70';
+function map({ route = false, live = false, pickupOnly = false } = {}) {
+  return `<svg viewBox="0 0 390 470" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map from ${PICKUP} to ${S.dest.t}">
+    <rect width="390" height="470" fill="var(--map)"/>
+    <rect x="96" y="196" width="90" height="118" rx="8" fill="var(--block)"/>
+    <rect x="216" y="196" width="80" height="118" rx="8" fill="var(--park)"/>
+    <rect x="96" y="86" width="190" height="78" rx="8" fill="var(--block)"/>
+    <rect x="216" y="346" width="110" height="100" rx="8" fill="var(--block)"/>
+    <rect x="96" y="346" width="90" height="60" rx="8" fill="var(--block)"/>
+    <ellipse cx="40" cy="150" rx="70" ry="54" fill="var(--water)"/>
+    <rect x="326" y="86" width="60" height="80" rx="8" fill="var(--block)"/>
+    ${['M0 70H390','M0 180H390','M0 330H390','M0 420H390','M80 0V470','M200 0V470','M310 0V470','M345 180V470'].map(d=>`<path class="r-edge" d="${d}"/>`).join('')}
+    ${['M0 70H390','M0 180H390','M0 330H390','M0 420H390','M80 0V470','M200 0V470','M310 0V470','M345 180V470'].map(d=>`<path class="r" d="${d}"/>`).join('')}
+    <path class="r-sm" d="M345 200 L310 160"/>
+    <text class="maplabel" x="102" y="322">KORAMANGALA</text>
+    <text class="maplabel" x="226" y="62">INDIRANAGAR</text>
+    <text class="maplabel" x="224" y="262">PARK</text>
+    ${route ? `
+      ${live && S.deviated ? `<path class="route-ghost" d="M200 330 L200 180 L310 180"/>` : ''}
+      <path id="routePath" class="route" d="${live && S.deviated ? 'M80 420 L80 330 L200 330' : ROUTE}"/>
+      ${live && S.deviated ? `<path class="route-dev" d="M200 330 L345 330 L345 200 L310 160 L310 70"/>` : ''}
+      <path id="devTrack" d="${DEV}" fill="none" stroke="none"/>
+      <circle cx="310" cy="70" r="9" fill="var(--ink)"/><rect x="306" y="66" width="8" height="8" fill="#fff"/>
+    ` : ''}
+    <circle cx="80" cy="420" r="18" fill="rgba(30,158,106,.18)"/>
+    <circle cx="80" cy="420" r="8" fill="#1E9E6A" stroke="#fff" stroke-width="3"/>
+    ${live ? `<g id="car" transform="translate(80,420)"><circle r="15" fill="#fff" stroke="var(--ink)" stroke-width="2"/><g transform="translate(-9,-9) scale(.75)" stroke="#16213E" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${P.car}</g></g>` : ''}
+    ${pickupOnly ? `<g transform="translate(150,370)"><circle r="12" fill="#fff" stroke="var(--line)"/><g transform="translate(-7,-7) scale(.58)" stroke="#3C4660" fill="none" stroke-width="2">${P.car}</g></g>
+                    <g transform="translate(250,300)"><circle r="12" fill="#fff" stroke="var(--line)"/><g transform="translate(-7,-7) scale(.58)" stroke="#3C4660" fill="none" stroke-width="2">${P.car}</g></g>` : ''}
+  </svg>`;
+}
+
+/* ---------- Shared pieces ---------- */
+const statusBar = () => `<div class="sb"><b>${time()}</b><span class="row" style="gap:6px"><span class="sig"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:12px"></i></span><span style="font-size:12px">5G</span></span></div>`;
+const topbar = (title, backAction = 'back') => `<div class="topbar"><button class="iconbtn" data-a="${backAction}" aria-label="Back">${I('left')}</button><h1>${title}</h1></div>`;
+const switchEl = (on, a, cls = '') => `<button class="switch ${cls} ${on ? 'on' : ''}" data-a="${a}" role="switch" aria-checked="${on}" aria-label="Toggle"></button>`;
+
+/* The honest wait meter: any driver vs woman driver, on a shared 0–15 min scale */
+function waitMeter() {
+  const [lo, hi] = herWait(); const any = CATS[S.cat].eta; const max = 15;
+  const unavailable = S.availability === 'unavailable';
+  return `<div class="meter" aria-label="Estimated pickup comparison">
+    <div class="lane"><span class="lbl">Any driver</span><span class="track"><span class="fill" style="width:${any/max*100}%"></span></span><span class="val">${any} min</span></div>
+    <div class="lane"><span class="lbl" style="color:var(--her)">Woman driver</span><span class="track">
+      <span class="solid" style="width:${lo/max*100}%"></span><span class="range" style="left:${lo/max*100}%;width:${(hi-lo)/max*100}%"></span></span>
+      <span class="val" style="color:var(--her)">${lo}–${hi} min</span></div>
+    <div class="scale"><span>0</span><span>5</span><span>10</span><span>15</span></div>
+    ${unavailable ? `<div class="banner warn" style="margin-top:8px">${I('info',16)}<span>Few women drivers are online near you right now. Matching may not succeed within ${S.settings.wait} min.</span></div>` : ''}
+  </div>`;
+}
+
+/* =========================================================
+   Screens
+   ========================================================= */
+const SCREENS = {};
+
+/* 1 — Home */
+SCREENS.home = () => `
+<div class="screen on-map">
+  <div class="map home-map" style="position:absolute;top:0;left:0;right:0">${map({ pickupOnly:true })}</div>
+  ${statusBar()}
+  <div style="height:150px;flex:none"></div>
+  <div class="sheet scroll" style="flex:1">
+    <div class="grab"></div>
+    <div class="pad">
+      <div class="row small" style="margin:4px 0 10px">${I('pin',14)}<span>${PICKUP}, Bengaluru</span></div>
+      <button class="whereto" data-a="go" data-v="search">${I('search',20)}<span>Where to?</span></button>
+      <div class="chips">
+        <button class="chip" data-a="pick" data-v="0">${I('home',18)}<span><b>Home</b><span>Indiranagar</span></span></button>
+        <button class="chip" data-a="pick" data-v="4">${I('work',18)}<span><b>Work</b><span>MG Road</span></span></button>
+      </div>
+      ${S.notify ? `<div class="banner info">${I('bell',16)}<span class="grow">We'll notify you when a woman driver is within ${S.settings.wait} min of you.</span><button class="link" data-a="cancelNotify" style="font-size:13px">Turn off</button></div>` : ''}
+      ${S.reservation ? `<div class="banner her">${I('cal',16)}<span class="grow">HER-preference ride reserved for <b>${S.reservation}</b> to Indiranagar${S.billTo==='work' ? ', billed to work' : ''}.</span></div>` : ''}
+      <div class="services">
+        ${[['car','Daily'],['auto','Auto'],['clock','Rentals'],['route','Outstation']].map(([i,l])=>`<button class="svc" data-a="go" data-v="search"><span class="tile">${I(i,26)}</span>${l}</button>`).join('')}
+      </div>
+      <button class="her-entry" data-a="go" data-v="settings">
+        <span class="her-mark">HER</span>
+        <span class="grow"><b style="font-size:14.5px;display:block">Women driver preference</b><span class="small">Prefer a woman driver when one is nearby. ${S.settings.prefer ? 'On for late-night rides.' : 'Currently off.'}</span></span>
+        ${I('right',18)}
+      </button>
+      <div class="recent">
+        <div class="small" style="font-weight:700;margin-bottom:2px">Recent</div>
+        ${[[2,'clock'],[1,'clock'],[5,'clock']].map(([i,ic])=>`<button data-a="pick" data-v="${i}"><span class="dot-ic">${I(ic,16)}</span><span class="grow"><b style="font-size:14.5px;display:block">${PLACES[i].t}</b><span class="small">${PLACES[i].s}</span></span></button>`).join('')}
+      </div>
+    </div>
+  </div>
+  <nav class="tabbar">
+    <button class="tab on">${I('home',22)}Home</button>
+    <button class="tab" data-a="toast" data-v="Ride history is outside this prototype's scope">${I('list',22)}Rides</button>
+    <button class="tab" data-a="go" data-v="safety">${I('shield',22)}Safety</button>
+    <button class="tab" data-a="go" data-v="profile">${I('user',22)}Profile</button>
+  </nav>
+</div>`;
+
+/* 2 — Destination search */
+SCREENS.search = () => `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('Plan your ride')}
+  <div class="loc-box">
+    <div class="loc-line"><span class="pip g"></span><input value="${PICKUP}" aria-label="Pickup" readonly></div>
+    <div class="loc-line"><span class="pip r"></span><input id="dropInput" value="${S.query}" placeholder="Where to?" aria-label="Destination" autocomplete="off"></div>
+  </div>
+  <div class="scroll sugg" id="sugg" style="margin-top:12px">${suggestions()}</div>
+</div>`;
+function suggestions() {
+  const q = S.query.trim().toLowerCase();
+  const list = PLACES.map((p,i)=>({...p,i})).filter(p => !q || p.t.toLowerCase().includes(q) || p.s.toLowerCase().includes(q));
+  if (!list.length) return `<div class="pad small" style="padding-top:12px">No matching places. Try "Indiranagar" or "Airport".</div>`;
+  return list.map(p => `<button data-a="pick" data-v="${p.i}"><span class="dot-ic">${I(p.airport ? 'plane' : 'pin',16)}</span><span class="grow"><b>${p.t}</b><span>${p.s}</span></span></button>`).join('');
+}
+
+/* 3 — Ride selection, with HER as a preference layer on eligible categories */
+SCREENS.rides = () => {
+  const c = CATS[S.cat]; const [lo, hi] = herWait();
+  const herOn = S.herPref && c.her;
+  return `
+<div class="screen on-map">
+  <div class="map rides-map" style="position:absolute;top:0;left:0;right:0">${map({ route:true })}</div>
+  ${statusBar()}
+  <div class="topbar" style="padding-top:0"><button class="iconbtn" data-a="back" aria-label="Back">${I('left')}</button></div>
+  <div style="height:120px;flex:none"></div>
+  <div class="sheet scroll" style="flex:1">
+    <div class="grab"></div>
+    <div class="pad">
+      <div class="row between" style="margin:2px 0 10px">
+        <div class="small grow"><b style="color:var(--ink)">${PICKUP}</b> to <b style="color:var(--ink)">${S.dest.t}</b></div>
+      </div>
+      ${Object.entries(CATS).map(([k, v]) => {
+        const her = S.herPref && v.her;
+        return `<button class="cat ${S.cat===k?'sel':''}" data-a="cat" data-v="${k}">
+          <span class="veh">${I(v.icon,24)}</span>
+          <span class="grow"><b>${v.name}</b><div class="small">${v.desc}</div></span>
+          <span><div class="fare">₹${fare(k)}</div><div class="eta ${her ? 'her' : ''}">${her ? `${lo}–${hi} min` : `${v.eta} min away`}</div></span>
+        </button>`;}).join('')}
+
+      ${c.her ? `
+      <div class="herrow ${herOn ? 'on' : ''}">
+        <div class="row">
+          <span class="her-mark">HER</span>
+          <span class="grow"><b style="font-size:14.5px;display:block">Prefer a woman driver</b>
+            <span class="small">${herOn ? `Estimated wait ${lo}–${hi} min. Not guaranteed.` : `Usually adds a few minutes of wait`}</span></span>
+          ${switchEl(herOn, 'toggleHer')}
+        </div>
+        ${herOn && S.herReason ? `<div class="small" style="margin-top:8px;display:flex;gap:6px;align-items:center">${I('sliders',13)}${S.herReason}</div>` : ''}
+        ${herOn ? waitMeter() : ''}
+      </div>` : `
+      <div class="banner info">${I('info',16)}<span>Woman-driver preference is available on Mini and Prime Sedan in this pilot. Safety features stay on for every ride.</span></div>`}
+
+      <div class="row small" style="margin:10px 2px 12px;gap:8px">${I('wallet',16)}<span class="grow">Cash</span><span class="row" style="gap:6px;color:var(--safe);font-weight:700">${I('shieldCheck',15)}Safety on</span></div>
+      <button class="btn ${herOn ? 'btn-her' : 'btn-primary'}" data-a="book">${herOn ? `Book ${c.name} with HER preference` : `Book ${c.name}`}</button>
+      <div style="height:18px"></div>
+    </div>
+  </div>
+  ${S.sheet === 'her' ? herSheet() : ''}
+</div>`;
+};
+
+/* 4 — HER preference explainer sheet (opens when the toggle is switched on) */
+function herSheet() {
+  const [lo, hi] = herWait();
+  return `<div class="overlay" data-a="closeSheet" data-self>
+  <div class="sheet" role="dialog" aria-label="Prefer a woman driver">
+    <div class="grab"></div>
+    <div class="pad">
+      <div class="row between"><span class="her-mark">HER</span><button class="iconbtn" data-a="closeSheet" aria-label="Close" style="width:34px;height:34px">${I('x',16)}</button></div>
+      <h2 class="h2" style="margin-top:12px">Prefer a woman driver</h2>
+      <p class="sub">We'll try to match you with a woman driver. Availability may vary and wait times can be longer.</p>
+      <div class="row" style="margin-top:14px;gap:10px"><span style="font-size:28px;font-weight:800;letter-spacing:-.02em">${lo}–${hi} min</span><span class="small">estimated pickup</span></div>
+      ${waitMeter()}
+      <div class="banner safe">${I('shieldCheck',16)}<span>Trip sharing, route alerts and SOS stay on with every driver. This preference is about your comfort and choice.</span></div>
+      <button class="btn btn-her" style="margin-top:14px" data-a="confirmHer">Find a woman driver</button>
+      <button class="opt" data-a="notify"><span class="oi">${I('bell',18)}</span><span class="grow"><b>Notify me when available</b><span>Get an alert when a woman driver is nearby</span></span></button>
+      <button class="opt" data-a="go" data-v="reserve"><span class="oi">${I('cal',18)}</span><span class="grow"><b>Reserve for later</b><span>Book ahead for a better chance of a match</span></span></button>
+      <button class="opt" data-a="anyDriver"><span class="oi">${I('car',18)}</span><span class="grow"><b>Continue with any driver</b><span>Fastest pickup, ${CATS[S.cat].eta} min away</span></span></button>
+    </div>
+  </div></div>`;
+}
+
+/* 5 — Matching */
+SCREENS.matching = () => {
+  const her = S.matchMode === 'her';
+  const steps = her
+    ? (S.extended
+        ? ['Keeping your request open', 'Checking women drivers finishing nearby trips', `Searching up to ${S.settings.wait + 8} min`]
+        : ['Request sent with HER preference', 'Checking women drivers within 2 km', 'Expanding search to 4 km'])
+    : ['Request sent', 'Checking nearby drivers', 'Confirming your driver'];
+  return `
+<div class="screen">
+  ${statusBar()}
+  <div class="match-wrap">
+    <div class="radar ${her ? '' : 'any'}"><span></span><span></span><span></span><div class="core" style="color:${her ? 'var(--her)' : 'var(--ink)'}">${I('car',30)}</div></div>
+    <h2 class="h2">Finding your ride</h2>
+    <p class="sub">${her ? 'Looking for a nearby woman driver…' : 'Looking for the nearest driver…'}</p>
+    <div class="steps">
+      ${steps.map((t,i)=>`<div class="step ${S.matchStep>i?'done':S.matchStep===i?'now':''}"><span class="b">${S.matchStep>i?I('check',12,'stroke-width="3"'):''}</span>${t}</div>`).join('')}
+    </div>
+    <div class="progress"><i style="width:${Math.min(100,(S.matchStep+1)*25)}%"></i></div>
+    ${her ? `<p class="small" style="margin-top:14px">You set a maximum extra wait of ${S.settings.wait} min. We'll show you options if we can't match in time.</p>` : ''}
+  </div>
+  <div class="pad" style="padding-bottom:30px">
+    ${her ? `<button class="btn btn-line" data-a="anyDriver" style="margin-bottom:10px">Switch to any driver</button>` : ''}
+    <button class="btn btn-ghost" data-a="cancelRide">Cancel request</button>
+  </div>
+</div>`;
+};
+
+/* 6 — Driver matched */
+SCREENS.matched = () => {
+  const d = D(); const c = CATS[S.cat];
+  return `
+<div class="screen on-map">
+  <div class="map" style="position:absolute;top:0;left:0;right:0;height:330px">${map({ route:true })}</div>
+  ${statusBar()}
+  <div class="floating" style="top:52px;left:16px">${S.herMatched ? `<span class="pill" style="color:#9C3940">${I('verified',15)}HER preference matched</span>` : `<span class="pill">${I('shieldCheck',15,'style="color:var(--safe)"')}Safety on for this ride</span>`}</div>
+  <div style="flex:1"></div>
+  <div class="sheet" style="padding-bottom:24px">
+    <div class="grab"></div>
+    <div class="pad">
+      <div class="row between"><b style="font-size:17px">${S.arrived ? `${d.name} has arrived` : `${d.name} is ${S.night ? 4 : 3} min away`}</b>
+        <span class="row small" style="gap:6px">OTP <span class="otp"><i>4</i><i>8</i><i>2</i><i>1</i></span></span></div>
+      <div class="row" style="margin-top:14px">
+        <div class="avatar ${d.woman ? 'f' : ''}">${d.initials}</div>
+        <div class="grow">
+          <b style="font-size:17px">${d.name}</b>
+          <div class="row small" style="gap:6px;margin-top:2px">${I('star',13,'fill="#F2A900" stroke="#F2A900"')}<b style="color:var(--ink)">${d.rating}</b> ${d.trips} trips</div>
+          <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
+            ${d.woman ? `<span class="badge her">Woman driver</span>` : ''}
+            <span class="badge safe">${I('verified',12)}ID verified</span>
+          </div>
+        </div>
+        <div style="text-align:right"><span class="plate">${d.plate}</span><div class="small" style="margin-top:6px">${d.vehicle}</div></div>
+      </div>
+      ${!S.herMatched && S.matchMode==='any' && S.herPref ? `<div class="banner info">${I('info',16)}<span>You chose the fastest ride. Trip sharing, route alerts and SOS are on as usual.</span></div>` : ''}
+      <div class="actions">
+        <button class="act" data-a="toast" data-v="Calling ${d.name} on a masked number…"><span class="c">${I('phone',20)}</span>Call</button>
+        <button class="act" data-a="toast" data-v="Chat opens here. Messages are logged for your safety.">${`<span class="c">${I('msg',20)}</span>`}Chat</button>
+        <button class="act" data-a="shareTrip"><span class="c">${I('share',20)}</span>Share</button>
+        <button class="act safety" data-a="go" data-v="safety"><span class="c">${I('shield',20)}</span>Safety</button>
+        <button class="act cancel" data-a="cancelRide"><span class="c">${I('x',20)}</span>Cancel</button>
+      </div>
+      <button class="btn btn-primary" style="margin-top:16px;${S.arrived ? '' : 'opacity:.55'}" data-a="startRide" ${S.arrived ? '' : 'disabled'}>${S.arrived ? 'Start ride (OTP shared)' : 'Waiting for driver to arrive…'}</button>
+    </div>
+  </div>
+</div>`;
+};
+
+/* 7 — No woman driver available (honest fallback) */
+SCREENS.nodriver = () => `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('', 'cancelRide')}
+  <div class="scroll pad">
+    <div style="width:56px;height:56px;border-radius:16px;background:var(--her-soft);color:var(--her);display:grid;place-items:center">${I('users',26)}</div>
+    <h2 class="h2" style="margin-top:14px;font-size:23px">No woman driver nearby right now</h2>
+    <p class="sub">We couldn't find a woman driver within your preferred wait time of ${S.settings.wait} min.</p>
+    <div class="banner warn">${I('info',16)}<span><b>Near you now:</b> no women drivers free within 4 km. 2 are finishing trips in Koramangala and HSR.</span></div>
+
+    <button class="opt hl" data-a="extendWait"><span class="oi">${I('clock',18)}</span><span class="grow"><b>Wait ~8 min</b><span>Keep looking for a woman driver</span></span>${I('right',18)}</button>
+    <button class="opt hl" data-a="go" data-v="reserve"><span class="oi">${I('cal',18)}</span><span class="grow"><b>Reserve</b><span>Book a HER-preference ride for later</span></span>${I('right',18)}</button>
+    <button class="opt" data-a="anyDriver"><span class="oi">${I('car',18)}</span><span class="grow"><b>Continue with any driver</b><span>Get the fastest available ride, ${CATS[S.cat].eta} min away</span></span>${I('right',18)}</button>
+
+    <div class="banner safe" style="margin-top:16px">${I('shieldCheck',16)}<span>Whatever you choose, trip sharing, route alerts and SOS stay on.</span></div>
+    <button class="link" style="margin:16px 0 24px" data-a="notify">Notify me when a woman driver is nearby</button>
+  </div>
+</div>`;
+
+/* Reserve for later (demand density, Decision 6) */
+SCREENS.reserve = () => {
+  const slots = S.night ? ['11:15 PM','11:30 PM','11:45 PM','Tomorrow 8:30 AM','Tomorrow 9:00 AM','Pick a time'] : ['3:00 PM','3:30 PM','4:00 PM','6:30 PM','7:00 PM','Pick a time'];
+  return `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('Reserve a HER ride')}
+  <div class="scroll pad">
+    <div class="loc-box" style="margin:0">
+      <div class="loc-line"><span class="pip g"></span><span style="font-weight:600">${PICKUP}</span></div>
+      <div class="loc-line"><span class="pip r"></span><span style="font-weight:600">${S.dest.t}</span></div>
+    </div>
+    <div class="qblock"><h3>Pickup time</h3>
+      <div class="timechips">${slots.map((t,i)=>`<button class="${S.resSlot===i?'on':''}" data-a="slot" data-v="${i}">${t}</button>`).join('')}</div>
+    </div>
+    <div class="banner her" style="margin-top:18px">${I('info',16)}<span>Reserving gives women drivers time to plan their shift, so a match is more likely than booking on the spot. We'll confirm your driver 20 min before pickup.</span></div>
+    <div class="banner info">${I('car',16)}<span>If no woman driver confirms, we'll ask you before assigning anyone else. Nothing is booked without your say.</span></div>
+    <div class="qblock"><h3>Bill to</h3>
+      <div class="timechips" style="grid-template-columns:1fr 1fr">
+        <button class="${S.billTo==='personal'?'on':''}" data-a="bill" data-v="personal">Personal</button>
+        <button class="${S.billTo==='work'?'on':''}" data-a="bill" data-v="work">Work: late-shift programme</button>
+      </div>
+      ${S.billTo==='work' ? `<p class="small" style="margin-top:8px">Paid by your employer under its late-shift travel policy. Corporate HER rides are booked ahead, which helps women drivers plan their shifts.</p>` : ''}
+    </div>
+    <div class="row between" style="margin-top:18px"><span class="small">Estimated fare, ${CATS[S.cat].name}</span><b>${S.billTo==='work' ? 'Paid by employer' : '₹'+fare(S.cat)}</b></div>
+    <button class="btn btn-her" style="margin:16px 0 24px" data-a="confirmReserve" data-v="${slots[S.resSlot]}">Reserve for ${slots[S.resSlot]}</button>
+  </div>
+</div>`;
+};
+
+/* 9 + 10 — Live ride, with route deviation alert */
+SCREENS.live = () => {
+  const d = D();
+  return `
+<div class="screen on-map">
+  <div class="live-map map" style="position:absolute;inset:0 0 230px 0">${map({ route:true, live:true })}</div>
+  ${statusBar()}
+  <div class="floating" style="top:52px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center">
+    <span class="pill"><span class="live"></span>HER Safety active</span>
+    ${S.sharing || S.settings.autoShare && S.night ? `<span class="pill">${I('share',14)}Shared with Mom</span>` : ''}
+  </div>
+  <div class="floating" style="right:16px;bottom:250px"><button class="shield-fab" data-a="go" data-v="safety" aria-label="Open safety centre">${I('shield',26)}</button></div>
+  ${S.deviated && !S.alertOpen ? `<div class="floating" style="left:16px;bottom:250px"><span class="pill" style="color:var(--warn)">${I('route',14)}Route change being monitored</span></div>` : ''}
+  <div style="flex:1"></div>
+  <div class="sheet" style="height:230px;flex:none">
+    <div class="grab"></div>
+    <div class="pad">
+      <div class="row between"><div><div class="small">Arriving at ${S.dest.t}</div><b style="font-size:22px;letter-spacing:-.02em" id="eta">14 min</b></div>
+        <span class="plate">${d.plate}</span></div>
+      <div class="row" style="margin-top:12px">
+        <div class="avatar ${d.woman ? 'f':''}" style="width:42px;height:42px;font-size:16px">${d.initials}</div>
+        <div class="grow"><b>${d.name}</b> <span class="small">${d.vehicle}</span>
+          <div class="row" style="gap:6px;margin-top:4px">${S.herMatched ? `<span class="badge her">HER preference matched</span>` : `<span class="badge neutral">Any driver</span>`}</div></div>
+        <button class="iconbtn" data-a="toast" data-v="Calling ${d.name} on a masked number…" aria-label="Call">${I('phone',18)}</button>
+      </div>
+      <div class="row" style="gap:10px;margin-top:14px">
+        <button class="btn btn-line" style="height:46px" data-a="shareTrip">${I('share',18)}${S.sharing ? 'Sharing' : 'Share trip'}</button>
+        <button class="btn btn-line" style="height:46px;color:var(--safe)" data-a="go" data-v="safety">${I('shield',18)}Safety</button>
+      </div>
+    </div>
+  </div>
+  ${S.alertOpen ? deviationAlert() : ''}
+  ${S.sheet === 'share' ? shareSheet() : ''}
+</div>`;
+};
+function deviationAlert() {
+  return `<div class="overlay center"><div class="card-modal" role="alertdialog" aria-label="Driver off route">
+    <div style="width:52px;height:52px;border-radius:14px;background:var(--warn-soft);color:var(--warn);display:grid;place-items:center">${I('route',26)}</div>
+    <h2 class="h2" style="margin-top:14px">Your driver appears to be off route</h2>
+    <p class="sub">The car has moved about 1.2 km away from the expected route to ${S.dest.t}. We're watching the trip closely.</p>
+    <button class="btn btn-primary" style="margin-top:16px" data-a="imOkay">I'm okay</button>
+    <button class="btn btn-line" style="margin-top:10px" data-a="toast" data-v="Calling Mom, your emergency contact. She can also see your live trip.">${I('phone',18)}Call emergency contact</button>
+    <button class="btn btn-line" style="margin-top:10px" data-a="getHelp">${I('headset',18)}Get help</button>
+    <button class="btn btn-sos" style="margin-top:10px" data-a="armSos">Emergency</button>
+    <p class="small" style="text-align:center;margin:12px 0 0">If you don't respond within 60 seconds, Ola Safety will call you.</p>
+  </div></div>`;
+}
+function shareSheet() {
+  return `<div class="overlay" data-a="closeSheet" data-self><div class="sheet" role="dialog" aria-label="Share trip"><div class="grab"></div><div class="pad">
+    <h2 class="h2">Share live trip</h2>
+    <p class="sub">They'll see your driver, car, route and live location until you arrive.</p>
+    <div style="margin-top:10px">
+      ${[['mom','Mom','Emergency contact'],['ananya','Ananya','Flatmate']].map(([k,n,r])=>`
+      <div class="contact"><div class="avatar" style="width:40px;height:40px;font-size:15px">${n[0]}</div><div class="grow"><b>${n}</b><div class="small">${r}</div></div>${switchEl(S.share[k], 'shareContact" data-v="'+k, 'green')}</div>`).join('')}
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" data-a="confirmShare">Share trip</button>
+  </div></div></div>`;
+}
+
+/* 8 — Safety centre */
+SCREENS.safety = () => {
+  const inRide = ['live','matched'].includes(S.history[S.history.length-1]);
+  return `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('Your safety')}
+  <div class="scroll pad" style="padding-bottom:24px">
+    <button class="sos-big" data-a="armSos"><span class="ring">SOS</span><span><b>Emergency</b><span>Alerts Ola Safety and your emergency contacts with your live location</span></span></button>
+
+    <div class="stile" style="margin-top:12px;min-height:0">
+      <div class="row"><span class="ti" style="background:var(--safe-soft);color:var(--safe)">${I('heart',18)}</span><b class="grow">Everything okay?</b></div>
+      <div class="row" style="gap:10px"><button class="btn btn-line" style="height:44px" data-a="checkinOk">Yes, I'm fine</button><button class="btn btn-line" style="height:44px;color:var(--sos)" data-a="getHelp">I need help</button></div>
+    </div>
+
+    <div class="tile2">
+      <button class="stile ${S.sharing ? 'on' : ''}" data-a="shareTrip"><span class="ti">${I('share',18)}</span><b>Share trip</b><span>${S.sharing ? 'Live with ' + Object.entries(S.share).filter(([,v])=>v).map(([k])=>k==='mom'?'Mom':'Ananya').join(', ') : 'Send live location to contacts'}</span></button>
+      <button class="stile ${S.recording ? 'on' : ''}" data-a="toggleRec"><span class="ti">${I('mic',18)}</span><b>${S.recording ? 'Recording' : 'Record audio'}</b><span>${S.recording ? 'Saved encrypted. Only Ola Safety can access it if you report.' : 'Encrypted, stored for 7 days'}</span></button>
+      <div class="stile on"><span class="ti">${I('route',18)}</span><b>Route protection</b><span>${S.deviated ? 'Deviation detected and logged on this trip' : 'Route deviation alerts are ON'}</span></div>
+      <div class="stile on"><span class="ti">${I('verified',18)}</span><b>Driver verified</b><span>${D().name}, ${D().plate}. ID and licence checked.</span></div>
+    </div>
+
+    <button class="opt" data-a="toast" data-v="Connecting you to Ola Safety Support (24×7)…"><span class="oi">${I('headset',18)}</span><span class="grow"><b>Contact Ola Safety Support</b><span>A trained agent, 24×7</span></span>${I('right',18)}</button>
+    <button class="opt" data-a="go" data-v="settings"><span class="oi" style="color:var(--her);background:var(--her-soft)">${I('sliders',18)}</span><span class="grow"><b>HER preferences</b><span>Woman-driver preference and wait limits</span></span>${I('right',18)}</button>
+    ${inRide ? `<button class="btn btn-primary" style="margin-top:16px" data-a="back">Back to ride</button>` : ''}
+  </div>
+  ${S.sosArm ? `<div class="overlay center"><div class="card-modal" style="text-align:center">
+     <div style="font-size:54px;font-weight:800;color:var(--sos);letter-spacing:-.03em">${S.sosArm}</div>
+     <h2 class="h2">Sending emergency alert</h2><p class="sub">Ola Safety and your emergency contacts will get your live location.</p>
+     <button class="btn btn-ghost" style="margin-top:16px" data-a="cancelSos">Cancel, I'm safe</button></div></div>` : ''}
+  ${S.sheet === 'share' ? shareSheet() : ''}
+</div>`;
+};
+
+/* SOS sent */
+SCREENS.sos = () => `
+<div class="screen sos-screen">
+  ${statusBar()}
+  <div class="scroll pad" style="padding-top:10px">
+    <div class="sos-pulse">${I('shield',60)}</div>
+    <h2 class="h2" style="text-align:center;font-size:24px">Emergency alert sent</h2>
+    <p class="sub" style="text-align:center">Stay on this screen if you can. Help is being coordinated.</p>
+    <div class="sos-list">
+      <div>${I('check',18)}Ola Safety team alerted. An agent will call you.</div>
+      <div>${I('check',18)}Live location sent to Mom</div>
+      <div>${I('check',18)}Trip, driver and car details shared</div>
+      <div>${I('mic',18)}Audio recording started</div>
+    </div>
+    <button class="btn" style="background:#fff;color:#B3231F;margin-top:18px" data-a="toast" data-v="Calling 112 (prototype: no real call is placed)">${I('phone',18)}Call 112</button>
+    <button class="btn" style="background:rgba(255,255,255,.14);color:#fff;margin-top:10px" data-a="toast" data-v="Connecting you to Ola Safety Support…">${I('headset',18)}Talk to Ola Safety</button>
+    <button class="btn" style="color:#fff;margin:14px 0 24px;text-decoration:underline" data-a="safeNow">I'm safe now</button>
+  </div>
+</div>`;
+
+/* 11 — Ride completed */
+SCREENS.complete = () => {
+  const d = D();
+  const comfort = ['Very comfortable','Comfortable','Neutral','Uncomfortable','Very uncomfortable'];
+  return `
+<div class="screen">
+  ${statusBar()}
+  <div class="scroll pad" style="padding-top:8px">
+    <div style="width:56px;height:56px;border-radius:50%;background:var(--safe-soft);color:var(--safe);display:grid;place-items:center">${I('home',26)}</div>
+    <h2 class="h2" style="margin-top:14px;font-size:24px">${S.dest.home ? "You're safely home" : `You've arrived at ${S.dest.t}`}</h2>
+    <p class="sub">₹${fare(S.cat)} paid in cash. ${S.deviated ? 'The route change on this trip has been logged for review.' : ''}</p>
+
+    <div class="qblock" style="text-align:center;padding:16px;border-radius:16px;box-shadow:0 0 0 1px var(--line);background:var(--card)">
+      <div class="row" style="justify-content:center"><div class="avatar ${d.woman?'f':''}" style="width:44px;height:44px;font-size:16px">${d.initials}</div><b>How was your ride with ${d.name}?</b></div>
+      <div class="stars">${[1,2,3,4,5].map(n=>`<button class="${S.rating>=n?'on':''}" data-a="rate" data-v="${n}" aria-label="${n} stars">${I('star',34,S.rating>=n?'fill="currentColor"':'')}</button>`).join('')}</div>
+    </div>
+
+    <div class="qblock"><h3>Did you feel comfortable during the ride?</h3>
+      <div class="choice">${comfort.map((c,i)=>`<button class="${S.comfort===i?'on':''}" data-a="comfort" data-v="${i}">${c}</button>`).join('')}</div>
+      ${S.comfort >= 3 ? `<div class="banner warn">${I('info',16)}<span class="grow">Sorry this ride didn't feel right. You can tell Ola Safety what happened, privately.</span><button class="link" data-a="toast" data-v="Report sent to Ola Safety. An agent will follow up." style="font-size:13px">Report</button></div>` : ''}
+    </div>
+
+    <div class="qblock"><h3>Would you prefer a woman driver next time?</h3>
+      <div class="choice">${['Yes','No'].map((c,i)=>`<button class="${S.nextPref===i?'on':''}" data-a="nextPref" data-v="${i}">${c}</button>`).join('')}</div>
+      <p class="small" style="margin-top:8px">Your answers help tune when we suggest a woman driver for you.</p>
+    </div>
+    <button class="btn btn-primary" style="margin:20px 0 26px" data-a="submitFeedback">Submit feedback</button>
+  </div>
+</div>`;
+};
+
+/* Profile */
+SCREENS.profile = () => `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('Profile')}
+  <div class="scroll">
+    <div class="row pad" style="margin-bottom:18px"><div class="avatar">A</div><div><b style="font-size:18px">Aditi Rao</b><div class="small">+91 98xxx xx210</div></div></div>
+    <div class="group">
+      <button class="srow" data-a="go" data-v="settings"><span class="her-mark">HER</span><span class="grow"><b>HER preferences</b><span>${S.settings.prefer ? 'Woman-driver preference on' : 'Off'}</span></span>${I('right',18)}</button>
+      <button class="srow" data-a="go" data-v="safety">${I('shield',20)}<span class="grow"><b>Safety</b><span>Emergency contacts, trip sharing</span></span>${I('right',18)}</button>
+      <button class="srow" data-a="toast" data-v="Payments are outside this prototype's scope">${I('wallet',20)}<span class="grow"><b>Payments</b><span>Cash, UPI</span></span>${I('right',18)}</button>
+    </div>
+  </div>
+</div>`;
+
+/* 12 — HER preference settings */
+SCREENS.settings = () => {
+  const st = S.draft || S.settings;
+  const sit = [['late','Late-night rides','9 PM to 6 AM'],['alone','Rides alone','When you are the only passenger'],['airport','Airport and station','Pickups or drops at terminals'],['all','All rides','Always prefer a woman driver']];
+  return `
+<div class="screen">
+  ${statusBar()}
+  ${topbar('HER preferences')}
+  <div class="scroll">
+    <div class="group">
+      <div class="srow"><span class="grow"><b>Prefer woman drivers</b><span>We'll try to match you. It's never guaranteed, and we'll always show your wait.</span></span>${switchEl(st.prefer,'setPrefer')}</div>
+    </div>
+    <div class="${st.prefer ? '' : 'dim'}">
+      <div class="group"><h4>Turn on automatically for</h4>
+        ${sit.map(([k,t,s])=>`<button class="srow" data-a="sit" data-v="${k}"><span class="cbox ${st[k]?'on':''}">${st[k]?I('check',14,'stroke-width="3"'):''}</span><span class="grow"><b>${t}</b><span>${s}</span></span></button>`).join('')}
+      </div>
+      <div class="group"><h4>Maximum additional wait</h4>
+        ${[5,10,15].map(m=>`<button class="srow" data-a="wait" data-v="${m}"><span class="radio ${st.wait===m?'on':''}"></span><span class="grow"><b>${m} min</b><span>${m===5?'Faster fallback, fewer matches':m===10?'Balanced':'More matches, longer waits'}</span></span></button>`).join('')}
+        <p class="small" style="margin:0 0 12px">After this, we'll show you options instead of making you wait.</p>
+      </div>
+      <div class="group">
+        <div class="srow"><span class="grow"><b>Auto-share late-night trips</b><span>With Mom, every ride after 9 PM</span></span>${switchEl(st.autoShare,'setAutoShare','green')}</div>
+      </div>
+    </div>
+    <div class="pad"><button class="btn btn-primary" style="margin:4px 0 26px" data-a="saveSettings">Save preferences</button></div>
+  </div>
+</div>`;
+};
+
+/* =========================================================
+   Actions
+   ========================================================= */
+const A = {
+  back, go: v => go(v),
+  pick: v => { S.dest = PLACES[+v]; S.cat = 'mini'; applyAutoPreference(); go('rides'); },
+  cat: v => { S.cat = v; render(); },
+  toggleHer: () => { S.herPref = !S.herPref; S.herReason = ''; if (S.herPref) S.sheet = 'her'; render(); },
+  closeSheet: () => { S.sheet = null; render(); },
+  confirmHer: () => { S.sheet = null; S.matchMode = 'her'; S.extended
